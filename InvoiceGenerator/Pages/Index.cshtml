@@ -1,0 +1,43 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4" style="margin-bottom: 25px;">Generate invoices</h1>
+    <form method="post" enctype="multipart/form-data">
+        <div style="display: flex; flex-direction: row; align-items: stretch; justify-content:flex-start;">
+            <div class="form-group">
+                <input type="file" name="JsonFile" id="jsonFile" class="form-control" accept=".json" />
+            </div>
+            <button type="submit" class="btn btn-primary" style="height: min-content; margin-left: 20px;">Upload</button>
+        </div>
+    </form>
+
+    @if (Model.ErrorMessage != null)
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.SuccessMessage != null)
+    {
+        <div class="alert alert-success">@Model.SuccessMessage</div>
+    }
+
+    <h3 class="mt-4">Uploaded Files:</h3>
+    @if (Model.UploadedFiles.Any())
+    {
+        <ul class="list-group">
+            @foreach (var file in Model.UploadedFiles)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    @file
+                    <form method="post" asp-page-handler="Download" asp-route-fileName="@file">
+                        <button type="submit" class="btn btn-success">Download PDF</button>
+                    </form>
+                </li>
+            }
+        </ul>
+    }
+</div>
