@@ -74,6 +74,7 @@ public class IndexModel : PageModel
                 if (root == null || root.Requests == null || !root.Requests.Any())
                 {
                     ErrorMessage = "The uploaded JSON is invalid or does not contain any requests.";
+                    OnGet();
                     return Page();
                 }
             }
@@ -84,17 +85,30 @@ public class IndexModel : PageModel
         {
             _logger.LogError(ex, "Error parsing the JSON file.");
             ErrorMessage = "There was an error processing the JSON file.";
+            DeleteFile();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unexpected error occurred.");
             ErrorMessage = "An unexpected error occurred while processing the file.";
+            DeleteFile();
+        }
+        finally
+        {
+            // Refresh the list of files after upload
+            OnGet();
         }
 
-        // Refresh the list of files after upload
-        OnGet();
-
         return Page();
+
+        void DeleteFile()
+        {
+            var filePath = Path.Combine(_env.WebRootPath, UploadFolder, JsonFile.FileName);
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+        }
     }
 
     public IActionResult OnPostDownload(string fileName)
