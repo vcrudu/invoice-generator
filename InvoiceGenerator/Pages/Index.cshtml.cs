@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.IO;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace InvoiceGenerator.Pages;
 
@@ -36,23 +36,29 @@ public class IndexModel : PageModel
 
         if (Directory.Exists(uploadPath))
         {
-            UploadedFiles = Directory.GetFiles(uploadPath)
-                                     .Select(Path.GetFileName)
-                                     .ToList();
+            UploadedFiles = Directory.GetFiles(uploadPath).Select(Path.GetFileName).ToList();
         }
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        if (JsonFile == null || JsonFile.Length == 0)
-        {
-            ErrorMessage = "Please upload a valid JSON file.";
-            OnGet();
-            return Page();
-        }
-
         try
         {
+            if (JsonFile == null || JsonFile.Length == 0)
+            {
+                ErrorMessage = "Please upload a valid JSON file.";
+                throw new JsonException("No file uploaded.");
+            }
+            // Validate the JSON
+            using (var stream = JsonFile.OpenReadStream())
+            {
+                var root = await JsonSerializer.DeserializeAsync<Root>(stream);
+                if (root == null || root.Requests == null || !root.Requests.Any())
+                {
+                    ErrorMessage = "The uploaded JSON is invalid or does not contain any requests.";
+                    throw new JsonException("Invalid JSON file.");
+                }
+            }
             // Ensure the upload directory exists
             var uploadPath = Path.Combine(_env.WebRootPath, UploadFolder);
             if (!Directory.Exists(uploadPath))
@@ -67,31 +73,17 @@ public class IndexModel : PageModel
                 await JsonFile.CopyToAsync(stream);
             }
 
-            // Validate the JSON
-            using (var stream = new FileStream(filePath, FileMode.Open))
-            {
-                var root = await JsonSerializer.DeserializeAsync<Root>(stream);
-                if (root == null || root.Requests == null || !root.Requests.Any())
-                {
-                    ErrorMessage = "The uploaded JSON is invalid or does not contain any requests.";
-                    OnGet();
-                    return Page();
-                }
-            }
-
             SuccessMessage = "JSON file uploaded and validated successfully.";
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Error parsing the JSON file.");
             ErrorMessage = "There was an error processing the JSON file.";
-            DeleteFile();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An unexpected error occurred.");
             ErrorMessage = "An unexpected error occurred while processing the file.";
-            DeleteFile();
         }
         finally
         {
@@ -100,15 +92,6 @@ public class IndexModel : PageModel
         }
 
         return Page();
-
-        void DeleteFile()
-        {
-            var filePath = Path.Combine(_env.WebRootPath, UploadFolder, JsonFile.FileName);
-            if (System.IO.File.Exists(filePath))
-            {
-                System.IO.File.Delete(filePath);
-            }
-        }
     }
 
     public IActionResult OnPostDownload(string fileName)
